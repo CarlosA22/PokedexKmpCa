@@ -9,4 +9,7 @@ object HomeRoute
 object PokedexRoute
 
 @Serializable
+object TeamRoute
+
+@Serializable
 data class PokemonDetailRoute(val pokemonId: Int)
