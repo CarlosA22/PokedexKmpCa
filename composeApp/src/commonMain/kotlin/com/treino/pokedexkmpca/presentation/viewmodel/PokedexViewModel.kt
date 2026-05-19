@@ -14,74 +14,69 @@ class PokedexViewModel(
     private val _searchText = MutableStateFlow("")
     val searchText = _searchText.asStateFlow()
 
-    private val _selectedType = MutableStateFlow<String?>(null)
-    val selectedType = _selectedType.asStateFlow()
+    private val _isShowingFavorites = MutableStateFlow(false)
+    val isShowingFavorites = _isShowingFavorites.asStateFlow()
 
-    private val _uiState = MutableStateFlow<PokedexUiState>(PokedexUiState.Loading)
-    val uiState: StateFlow<PokedexUiState> = _uiState.asStateFlow()
+    private val _allPokemons = MutableStateFlow<List<Pokemon>>(emptyList())
+    private val _isLoading = MutableStateFlow(false)
+    private val _errorMessage = MutableStateFlow<String?>(null)
 
-    private var currentOffset = 0
-    private val pageSize = 20
-    private var isLastPage = false
-    private val fullList = mutableListOf<Pokemon>()
-
-    init {
-        initialSyncAndLoad()
-    }
-
-    private fun initialSyncAndLoad() {
-        viewModelScope.launch {
-            _uiState.value = PokedexUiState.Loading
-            try {
-                repository.syncIfNeeded()
-                loadNextPage(reset = true)
-            } catch (e: Exception) {
-                _uiState.value = PokedexUiState.Error(e.message ?: "Erro na sincronização")
+    val uiState: StateFlow<PokedexUiState> = combine(
+        _allPokemons,
+        _searchText,
+        _isShowingFavorites,
+        _isLoading,
+        _errorMessage
+    ) { pokemons, query, showFavorites, loading, error ->
+        when {
+            loading -> PokedexUiState.Loading
+            error != null -> PokedexUiState.Error(error)
+            else -> {
+                val filtered = pokemons.filter {
+                    val matchesQuery = it.name.contains(query, ignoreCase = true) || 
+                                     it.id.toString().contains(query)
+                    val matchesFavorite = if (showFavorites) it.isFavorite else true
+                    matchesQuery && matchesFavorite
+                }
+                PokedexUiState.Success(filtered)
             }
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PokedexUiState.Loading)
+
+    init {
+        loadPokedex()
     }
 
-    fun loadNextPage(reset: Boolean = false) {
-        if (_uiState.value is PokedexUiState.Loading && !reset) return
-        if (isLastPage && !reset) return
-
+    fun loadPokedex() {
         viewModelScope.launch {
-            if (reset) {
-                currentOffset = 0
-                isLastPage = false
-                fullList.clear()
-            }
-
-            val newPokemons = repository.getPokedex(
-                query = _searchText.value,
-                type = _selectedType.value,
-                limit = pageSize,
-                offset = currentOffset
-            )
-
-            if (newPokemons.isEmpty()) {
-                isLastPage = true
-                if (reset) _uiState.value = PokedexUiState.Success(emptyList())
-            } else {
-                fullList.addAll(newPokemons)
-                currentOffset += pageSize
-                _uiState.value = PokedexUiState.Success(fullList.toList())
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
+                _allPokemons.value = repository.getPokedex()
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Erro desconhecido"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
     fun onSearchTextChange(text: String) {
         _searchText.value = text
-        loadNextPage(reset = true)
     }
 
-    fun onTypeSelected(type: String?) {
-        _selectedType.value = if (_selectedType.value == type) null else type
-        loadNextPage(reset = true)
+    fun toggleFavoritesView(show: Boolean) {
+        _isShowingFavorites.value = show
     }
 
-    fun refresh() {
-        initialSyncAndLoad()
+    fun toggleFavorite(pokemonId: Int) {
+        viewModelScope.launch {
+            repository.toggleFavorite(pokemonId)
+            // Refresh local state
+            _allPokemons.value = _allPokemons.value.map {
+                if (it.id == pokemonId) it.copy(isFavorite = !it.isFavorite) else it
+            }
+        }
     }
 }
 
