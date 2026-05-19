@@ -12,15 +12,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.treino.pokedexkmpca.data.local.rememberDatabase
 import com.treino.pokedexkmpca.data.remote.PokeApi
 import com.treino.pokedexkmpca.data.repository.PokemonRepositoryImpl
-import com.treino.pokedexkmpca.domain.usecase.GetPokedexUseCase
-import com.treino.pokedexkmpca.domain.usecase.GetPokemonByIdUseCase
 import com.treino.pokedexkmpca.navigation.HomeRoute
 import com.treino.pokedexkmpca.navigation.PokedexRoute
 import com.treino.pokedexkmpca.navigation.PokemonDetailRoute
 import com.treino.pokedexkmpca.navigation.TeamRoute
-import com.treino.pokedexkmpca.presentation.viewmodel.PokedexUiState
 import com.treino.pokedexkmpca.presentation.viewmodel.PokedexViewModel
 import com.treino.pokedexkmpca.presentation.viewmodel.PokemonDetailViewModel
 import com.treino.pokedexkmpca.ui.HomeScreen
@@ -34,11 +32,10 @@ fun App() {
     MaterialTheme {
         val navController = rememberNavController()
         
-        // Manual Injection (Simplified for this assignment)
+        // Manual Injection
         val api = remember { PokeApi() }
-        val repository = remember { PokemonRepositoryImpl(api) }
-        val getPokedexUseCase = remember { GetPokedexUseCase(repository) }
-        val getPokemonByIdUseCase = remember { GetPokemonByIdUseCase(repository) }
+        val database = rememberDatabase()
+        val repository = remember { PokemonRepositoryImpl(api, database.pokemonDao()) }
 
         NavHost(
             navController = navController,
@@ -68,16 +65,7 @@ fun App() {
             }
 
             composable<TeamRoute> {
-                val viewModel: PokedexViewModel = viewModel {
-                    PokedexViewModel(repository)
-                }
-                val uiState by viewModel.uiState.collectAsState()
-                
-                val team = if (uiState is PokedexUiState.Success) {
-                    (uiState as PokedexUiState.Success).pokemons.filter { it.isFavorite }
-                } else {
-                    emptyList()
-                }
+                val team by repository.getFavoritePokemons().collectAsState(initial = emptyList())
 
                 TeamScreen(
                     team = team,
@@ -103,8 +91,8 @@ fun App() {
 
                 PokemonDetailScreen(
                     uiState = uiState,
-                    onTeamClick = { id ->
-                        viewModel.toggleFavorite(id)
+                    onTeamClick = { pokemon, location ->
+                        viewModel.toggleFavorite(pokemon, location)
                     },
                     onBackClick = {
                         navController.popBackStack()

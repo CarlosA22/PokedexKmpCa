@@ -49,7 +49,10 @@ actual fun TeamScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(pokemon.name, fontSize = 18.sp)
+                            Column {
+                                Text(pokemon.name, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                Text(pokemon.description, fontSize = 14.sp, color = Color.Gray)
+                            }
                             Spacer(modifier = Modifier.weight(1f))
                             Text(">", color = Color.LightGray)
                         }
