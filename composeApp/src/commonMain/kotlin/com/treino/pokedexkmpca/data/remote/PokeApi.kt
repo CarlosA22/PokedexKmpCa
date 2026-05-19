@@ -26,8 +26,4 @@ class PokeApi {
     suspend fun getPokemonDetail(idOrName: String): PokemonDetailResponse {
         return client.get("https://pokeapi.co/api/v2/pokemon/$idOrName").body()
     }
-
-    suspend fun getTypeList(): PokemonListResponse {
-        return client.get("https://pokeapi.co/api/v2/type").body()
-    }
 }

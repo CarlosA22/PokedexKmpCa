@@ -10,7 +10,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,7 +26,7 @@ import com.treino.pokedexkmpca.presentation.viewmodel.PokemonDetailUiState
 @Composable
 fun PokemonDetailScreen(
     uiState: PokemonDetailUiState,
-    onTeamClick: (Pokemon, String?) -> Unit,
+    onTeamClick: (Int) -> Unit,
     onBackClick: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -51,12 +51,10 @@ fun PokemonDetailScreen(
 @Composable
 private fun PokemonDetailContent(
     pokemon: Pokemon,
-    onTeamClick: (Pokemon, String?) -> Unit,
+    onTeamClick: (Int) -> Unit,
     onBackClick: () -> Unit
 ) {
     val typeColor = getPokemonTypeColor(pokemon.types.firstOrNull() ?: "normal")
-    var showLocationDialog by remember { mutableStateOf(false) }
-    var locationInput by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -123,13 +121,7 @@ private fun PokemonDetailContent(
 
             // BOTÃO ADICIONAR AO TIME (REQUISITO DO PDF)
             Button(
-                onClick = { 
-                    if (pokemon.isFavorite) {
-                        onTeamClick(pokemon, null)
-                    } else {
-                        showLocationDialog = true
-                    }
-                },
+                onClick = { onTeamClick(pokemon.id) },
                 modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (pokemon.isFavorite) Color.Red else typeColor
@@ -174,45 +166,6 @@ private fun PokemonDetailContent(
             
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-
-    if (showLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationDialog = false },
-            title = { Text("Capturar Pokémon") },
-            text = {
-                Column {
-                    Text("Onde você capturou este Pokémon?", modifier = Modifier.padding(bottom = 8.dp))
-                    OutlinedTextField(
-                        value = locationInput,
-                        onValueChange = { locationInput = it },
-                        label = { Text("Local de captura") },
-                        placeholder = { Text("Ex: Pallet Town") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (locationInput.isNotBlank()) {
-                            onTeamClick(pokemon, locationInput)
-                            showLocationDialog = false
-                            locationInput = ""
-                        }
-                    },
-                    enabled = locationInput.isNotBlank()
-                ) {
-                    Text("Salvar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLocationDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
     }
 }
 
