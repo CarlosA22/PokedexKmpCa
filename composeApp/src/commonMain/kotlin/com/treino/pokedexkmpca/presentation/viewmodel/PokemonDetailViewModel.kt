@@ -20,7 +20,8 @@ class PokemonDetailViewModel(
         viewModelScope.launch {
             _uiState.value = PokemonDetailUiState.Loading
             try {
-                val pokemon = repository.getPokemonById(id)
+                // Requirement: Mandatory HTTP for details
+                val pokemon = repository.getPokemonById(id, forceRemote = true)
                 if (pokemon != null) {
                     _uiState.value = PokemonDetailUiState.Success(pokemon)
                 } else {
@@ -32,12 +33,13 @@ class PokemonDetailViewModel(
         }
     }
 
-    fun toggleFavorite(pokemonId: Int) {
+    fun toggleFavorite(pokemon: Pokemon, capturedLocation: String?) {
         viewModelScope.launch {
-            repository.toggleFavorite(pokemonId)
+            repository.toggleFavorite(pokemon, capturedLocation)
             val currentState = _uiState.value
             if (currentState is PokemonDetailUiState.Success) {
-                val updatedPokemon = currentState.pokemon.copy(isFavorite = !currentState.pokemon.isFavorite)
+                val isFav = repository.isFavorite(pokemon.id)
+                val updatedPokemon = currentState.pokemon.copy(isFavorite = isFav)
                 _uiState.value = PokemonDetailUiState.Success(updatedPokemon)
             }
         }

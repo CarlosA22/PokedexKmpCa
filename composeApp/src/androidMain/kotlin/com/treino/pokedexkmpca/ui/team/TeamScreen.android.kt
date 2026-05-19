@@ -44,11 +44,16 @@ actual fun TeamScreen(
             ) {
                 items(team) { pokemon ->
                     ListItem(
-                        headlineContent = { Text(pokemon.name) },
-                        supportingContent = { Text("#${pokemon.id}") },
+                        headlineContent = { Text(pokemon.name.capitalizeFirstLetter()) },
+                        supportingContent = { 
+                            Column {
+                                Text("#${pokemon.id}")
+                                Text(pokemon.description) // This contains "Capturado em: ..."
+                            }
+                        },
                         trailingContent = {
                             Button(onClick = { onPokemonClick(pokemon.id) }) {
-                                Text("Ver Detalhes")
+                                Text("Detalhes")
                             }
                         }
                     )
@@ -57,3 +62,5 @@ actual fun TeamScreen(
         }
     }
 }
+
+private fun String.capitalizeFirstLetter() = replaceFirstChar { it.uppercase() }
