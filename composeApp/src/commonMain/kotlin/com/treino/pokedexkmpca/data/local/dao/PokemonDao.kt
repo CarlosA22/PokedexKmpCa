@@ -13,7 +13,7 @@ interface PokemonDao {
     // Cache
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCache(pokemons: List<PokemonCacheEntity>)
-
+ //filter
     @Query("""
         SELECT * FROM pokemon_cache 
         WHERE (name LIKE '%' || :query || '%' OR CAST(id AS TEXT) LIKE '%' || :query || '%') 

@@ -24,7 +24,6 @@ class PokedexViewModel(
     private val pageSize = 20
     private var isLastPage = false
     private val fullList = mutableListOf<Pokemon>()
-    private var loadJob: kotlinx.coroutines.Job? = null
 
     init {
         initialSyncAndLoad()
@@ -43,47 +42,30 @@ class PokedexViewModel(
     }
 
     fun loadNextPage(reset: Boolean = false) {
-        if (loadJob?.isActive == true && !reset) return
+        if (_uiState.value is PokedexUiState.Loading && !reset) return
         if (isLastPage && !reset) return
 
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
+        viewModelScope.launch {
             if (reset) {
                 currentOffset = 0
                 isLastPage = false
                 fullList.clear()
             }
 
-            try {
-                val newPokemons = repository.getPokedex(
-                    query = _searchText.value,
-                    type = _selectedType.value,
-                    limit = pageSize,
-                    offset = currentOffset
-                )
+            val newPokemons = repository.getPokedex(
+                query = _searchText.value,
+                type = _selectedType.value,
+                limit = pageSize,
+                offset = currentOffset
+            )
 
-                if (newPokemons.isEmpty()) {
-                    isLastPage = true
-                    if (reset) _uiState.value = PokedexUiState.Success(emptyList())
-                } else {
-                    // Evitar duplicatas em caso de chamadas rápidas ou problemas de offset
-                    val currentIds = fullList.map { it.id }.toSet()
-                    val uniqueNewPokemons = newPokemons
-                        .distinctBy { it.id }
-                        .filter { it.id !in currentIds }
-                    
-                    if (uniqueNewPokemons.isNotEmpty()) {
-                        fullList.addAll(uniqueNewPokemons)
-                        currentOffset += pageSize
-                        _uiState.value = PokedexUiState.Success(fullList.toList())
-                    } else if (reset) {
-                        _uiState.value = PokedexUiState.Success(fullList.toList())
-                    }
-                }
-            } catch (e: Exception) {
-                if (reset) {
-                    _uiState.value = PokedexUiState.Error(e.message ?: "Erro ao carregar dados")
-                }
+            if (newPokemons.isEmpty()) {
+                isLastPage = true
+                if (reset) _uiState.value = PokedexUiState.Success(emptyList())
+            } else {
+                fullList.addAll(newPokemons)
+                currentOffset += pageSize
+                _uiState.value = PokedexUiState.Success(fullList.toList())
             }
         }
     }

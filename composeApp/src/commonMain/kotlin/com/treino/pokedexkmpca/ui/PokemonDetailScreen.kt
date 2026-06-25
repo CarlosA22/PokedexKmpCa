@@ -6,15 +6,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,11 +21,17 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.treino.pokedexkmpca.domain.model.Pokemon
 import com.treino.pokedexkmpca.presentation.viewmodel.PokemonDetailUiState
+import com.treino.pokedexkmpca.util.rememberImageStorage
+import com.treino.pokedexkmpca.util.rememberHardwareManager
+import dev.icerock.moko.permissions.Permission
+import dev.icerock.moko.permissions.compose.BindEffect
+import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
+import kotlinx.coroutines.launch
 
 @Composable
 fun PokemonDetailScreen(
     uiState: PokemonDetailUiState,
-    onTeamClick: (Pokemon, String?) -> Unit,
+    onTeamClick: (Pokemon, String?, Double?, Double?, String?) -> Unit,
     onBackClick: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -51,12 +56,30 @@ fun PokemonDetailScreen(
 @Composable
 private fun PokemonDetailContent(
     pokemon: Pokemon,
-    onTeamClick: (Pokemon, String?) -> Unit,
+    onTeamClick: (Pokemon, String?, Double?, Double?, String?) -> Unit,
     onBackClick: () -> Unit
 ) {
     val typeColor = getPokemonTypeColor(pokemon.types.firstOrNull() ?: "normal")
-    var showLocationDialog by remember { mutableStateOf(false) }
-    var locationInput by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val imageStorage = rememberImageStorage()
+
+    // Permissions
+    val permissionsControllerFactory = rememberPermissionsControllerFactory()
+    val permissionsController = remember(permissionsControllerFactory) { permissionsControllerFactory.createPermissionsController() }
+    BindEffect(permissionsController)
+
+    val hardwareManager = rememberHardwareManager { result ->
+        scope.launch {
+            val path = result.photoBytes?.let { imageStorage.saveImage(it) }
+            onTeamClick(
+                pokemon, 
+                "Capturado via GPS", 
+                result.latitude, 
+                result.longitude, 
+                path
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -121,13 +144,61 @@ private fun PokemonDetailContent(
                 }
             }
 
+            // FOTO CAPTURADA (REQUISITO DO PDF)
+            if (pokemon.isFavorite && pokemon.photoPath != null) {
+                Text(
+                    text = "Foto da Captura",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(top = 24.dp, bottom = 8.dp).fillMaxWidth(),
+                    textAlign = TextAlign.Start
+                )
+                AsyncImage(
+                    model = pokemon.photoPath,
+                    contentDescription = "Foto da captura",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.LightGray),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            // LOCALIZAÇÃO (REQUISITO DO PDF)
+            if (pokemon.isFavorite && pokemon.latitude != null && pokemon.longitude != null) {
+                Card(
+                    modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = typeColor.copy(alpha = 0.1f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = typeColor)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Coordenadas de Captura", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text("Lat: ${pokemon.latitude}, Lon: ${pokemon.longitude}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // BOTÃO ADICIONAR AO TIME (REQUISITO DO PDF)
             Button(
                 onClick = { 
                     if (pokemon.isFavorite) {
-                        onTeamClick(pokemon, null)
+                        onTeamClick(pokemon, null, null, null, null)
                     } else {
-                        showLocationDialog = true
+                        scope.launch {
+                            try {
+                                permissionsController.providePermission(Permission.LOCATION)
+                                permissionsController.providePermission(Permission.CAMERA)
+                                hardwareManager.capture()
+                            } catch (e: Exception) {
+                                // Tratar negação de permissão de forma amigável
+                            }
+                        }
                     }
                 },
                 modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
@@ -141,7 +212,7 @@ private fun PokemonDetailContent(
                     contentDescription = null
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (pokemon.isFavorite) "Remover do Time" else "Adicionar ao Time")
+                Text(if (pokemon.isFavorite) "Remover do Time" else "Capturar e Adicionar ao Time")
             }
 
             Text(
@@ -174,45 +245,6 @@ private fun PokemonDetailContent(
             
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-
-    if (showLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationDialog = false },
-            title = { Text("Capturar Pokémon") },
-            text = {
-                Column {
-                    Text("Onde você capturou este Pokémon?", modifier = Modifier.padding(bottom = 8.dp))
-                    OutlinedTextField(
-                        value = locationInput,
-                        onValueChange = { locationInput = it },
-                        label = { Text("Local de captura") },
-                        placeholder = { Text("Ex: Pallet Town") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (locationInput.isNotBlank()) {
-                            onTeamClick(pokemon, locationInput)
-                            showLocationDialog = false
-                            locationInput = ""
-                        }
-                    },
-                    enabled = locationInput.isNotBlank()
-                ) {
-                    Text("Salvar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLocationDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
     }
 }
 

@@ -91,8 +91,8 @@ fun App() {
 
                 PokemonDetailScreen(
                     uiState = uiState,
-                    onTeamClick = { pokemon, location ->
-                        viewModel.toggleFavorite(pokemon, location)
+                    onTeamClick = { pokemon, location, lat, lon, photo ->
+                        viewModel.toggleFavorite(pokemon, location, lat, lon, photo)
                     },
                     onBackClick = {
                         navController.popBackStack()

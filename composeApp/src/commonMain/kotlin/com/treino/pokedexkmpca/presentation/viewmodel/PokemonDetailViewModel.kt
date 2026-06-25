@@ -33,14 +33,22 @@ class PokemonDetailViewModel(
         }
     }
 
-    fun toggleFavorite(pokemon: Pokemon, capturedLocation: String?) {
+    fun toggleFavorite(
+        pokemon: Pokemon,
+        capturedLocation: String?,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        photoPath: String? = null
+    ) {
         viewModelScope.launch {
-            repository.toggleFavorite(pokemon, capturedLocation)
+            repository.toggleFavorite(pokemon, capturedLocation, latitude, longitude, photoPath)
             val currentState = _uiState.value
             if (currentState is PokemonDetailUiState.Success) {
-                val isFav = repository.isFavorite(pokemon.id)
-                val updatedPokemon = currentState.pokemon.copy(isFavorite = isFav)
-                _uiState.value = PokemonDetailUiState.Success(updatedPokemon)
+                // Reload from repository to get the updated state (with favorite info)
+                val updatedPokemon = repository.getPokemonById(pokemon.id)
+                if (updatedPokemon != null) {
+                    _uiState.value = PokemonDetailUiState.Success(updatedPokemon)
+                }
             }
         }
     }

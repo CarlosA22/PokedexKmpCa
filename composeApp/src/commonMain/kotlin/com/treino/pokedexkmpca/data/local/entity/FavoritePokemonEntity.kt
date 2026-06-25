@@ -9,5 +9,8 @@ data class FavoritePokemonEntity(
     val name: String,
     val imageUrl: String,
     val types: String,
-    val capturedLocation: String
+    val capturedLocation: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val photoPath: String? = null
 )

@@ -16,6 +16,7 @@ class PokemonRepositoryImpl(
     private val dao: PokemonDao
 ) : PokemonRepository {
 
+    //syncifneeded
     override suspend fun syncIfNeeded(): Unit = coroutineScope {
         val count = dao.getCacheCount()
         if (count == 0) {
@@ -41,15 +42,32 @@ class PokemonRepositoryImpl(
     }
 
     override suspend fun getPokemonById(id: Int, forceRemote: Boolean): Pokemon? {
+        val favorite = dao.getFavoriteById(id)
         return try {
             val detail = api.getPokemonDetail(id.toString())
-            detail.toDomain(dao.isFavorite(id))
+            val domain = detail.toDomain(favorite != null)
+            if (favorite != null) {
+                domain.copy(
+                    capturedLocation = favorite.capturedLocation,
+                    latitude = favorite.latitude,
+                    longitude = favorite.longitude,
+                    photoPath = favorite.photoPath
+                )
+            } else {
+                domain
+            }
         } catch (e: Exception) {
-            null
+            favorite?.toDomain()
         }
     }
 
-    override suspend fun toggleFavorite(pokemon: Pokemon, capturedLocation: String?) {
+    override suspend fun toggleFavorite(
+        pokemon: Pokemon,
+        capturedLocation: String?,
+        latitude: Double?,
+        longitude: Double?,
+        photoPath: String?
+    ) {
         if (dao.isFavorite(pokemon.id)) {
             dao.deleteFavorite(pokemon.id)
         } else {
@@ -59,7 +77,10 @@ class PokemonRepositoryImpl(
                     name = pokemon.name,
                     imageUrl = pokemon.imageUrl,
                     types = pokemon.types.joinToString(","),
-                    capturedLocation = capturedLocation
+                    capturedLocation = capturedLocation,
+                    latitude = latitude,
+                    longitude = longitude,
+                    photoPath = photoPath
                 ))
             }
         }
@@ -97,7 +118,11 @@ class PokemonRepositoryImpl(
             weight = 0,
             stats = emptyList(),
             description = "Capturado em: $capturedLocation",
-            isFavorite = true
+            isFavorite = true,
+            capturedLocation = capturedLocation,
+            latitude = latitude,
+            longitude = longitude,
+            photoPath = photoPath
         )
     }
 

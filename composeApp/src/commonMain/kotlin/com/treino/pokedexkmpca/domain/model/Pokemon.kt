@@ -14,5 +14,9 @@ data class Pokemon(
     val weight: Int,
     val stats: List<PokemonStat>,
     val description: String,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val capturedLocation: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val photoPath: String? = null
 )

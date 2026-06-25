@@ -9,7 +9,7 @@ import com.treino.pokedexkmpca.data.local.entity.PokemonCacheEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
-@Database(entities = [PokemonCacheEntity::class, FavoritePokemonEntity::class], version = 1)
+@Database(entities = [PokemonCacheEntity::class, FavoritePokemonEntity::class], version = 2)
 @ConstructedBy(PokemonDatabaseConstructor::class)
 abstract class PokemonDatabase : RoomDatabase() {
     abstract fun pokemonDao(): PokemonDao
@@ -26,6 +26,7 @@ fun getRoomDatabase(
     return builder
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
+        .fallbackToDestructiveMigration(true)
         .build()
 }
 
